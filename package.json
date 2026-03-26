@@ -1,0 +1,27 @@
+{
+  "name": "local-ssh-connect-cli",
+  "version": "1.0.0",
+  "description": "Stateless SSH credential encapsulation CLI for local use",
+  "main": "local-ssh-connect-cli.js",
+  "bin": {
+    "local-ssh-connect-cli": "./local-ssh-connect-cli.js"
+  },
+  "scripts": {
+    "help": "node local-ssh-connect-cli.js --help",
+    "list": "node local-ssh-connect-cli.js --get-credential-list"
+  },
+  "keywords": [
+    "ssh",
+    "cli",
+    "credential",
+    "stateless"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "winston": "^3.19.0"
+  }
+}
