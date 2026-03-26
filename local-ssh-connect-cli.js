@@ -31,6 +31,7 @@ RUN OPTIONS
   --ssh-path <path>             Override ssh binary path
   --timeout <seconds>           SSH connect timeout (default: 15)
   --port <number>               Override credential port
+  --accept-new-host-keys        Auto-accept and persist new host keys (no prompt)
   --no-strict-host-key-checking Disable strict host key checking
 
 EXAMPLES
@@ -120,6 +121,7 @@ function parseArgs(argv) {
     timeout: 15,
     sshPath: null,
     port: null,
+    acceptNewHostKeys: false,
     noStrictHostKeyChecking: false,
   };
 
@@ -153,6 +155,9 @@ function parseArgs(argv) {
         break;
       case '--port':
         opts.port = Number(args[++i]);
+        break;
+      case '--accept-new-host-keys':
+        opts.acceptNewHostKeys = true;
         break;
       case '--no-strict-host-key-checking':
         opts.noStrictHostKeyChecking = true;
@@ -242,6 +247,12 @@ function buildSshExec(cred, command, opts) {
   const baseArgs = ['-p', String(port), '-o', `ConnectTimeout=${timeout}`];
   if (opts.noStrictHostKeyChecking) {
     baseArgs.push('-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null');
+  } else if (opts.acceptNewHostKeys) {
+    // Persist accepted keys into a local file to keep runs non-interactive.
+    // This avoids prompting "Are you sure you want to continue connecting (yes/no/[fingerprint])?"
+    // while still failing on key changes (safer than StrictHostKeyChecking=no).
+    const knownHostsPath = path.join(LOG_DIR, 'known_hosts');
+    baseArgs.push('-o', 'StrictHostKeyChecking=accept-new', '-o', `UserKnownHostsFile=${knownHostsPath}`);
   }
 
   if (cred.authType === 'key') {
@@ -259,8 +270,10 @@ function buildSshExec(cred, command, opts) {
     const password = decodeBase64(cred.password);
     return {
       bin: sshpassPath,
-      args: ['-p', password, sshPath, ...baseArgs, userAtHost, command],
-      env: process.env,
+      // Use environment variable to avoid exposing password in argv/logs.
+      // sshpass: -e reads password from SSHPASS env var.
+      args: ['-e', sshPath, ...baseArgs, userAtHost, command],
+      env: { ...process.env, SSHPASS: password },
     };
   }
 
@@ -276,8 +289,13 @@ function runSsh(execInfo) {
       maxBuffer: 10 * 1024 * 1024,
     });
   } catch (e) {
-    const stderr = e && e.stderr ? String(e.stderr) : (e.message || 'Unknown SSH error');
-    die(`SSH command failed:\n${stderr}`);
+    // IMPORTANT: Do not use e.message here because it contains the full command line.
+    const stderr = e && e.stderr ? String(e.stderr) : '';
+    const code = typeof e.status === 'number' ? e.status : 1;
+    const msg = stderr.trim()
+      ? `SSH command failed (exit ${code}).\n${stderr.trim()}`
+      : `SSH command failed (exit ${code}).`;
+    die(msg);
   }
 }
 
