@@ -1,6 +1,6 @@
 {
   "name": "local-ssh-connect-cli",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Stateless SSH credential encapsulation CLI for local use",
   "main": "local-ssh-connect-cli.js",
   "bin": {
@@ -8,7 +8,8 @@
   },
   "scripts": {
     "help": "node local-ssh-connect-cli.js --help",
-    "list": "node local-ssh-connect-cli.js --get-credential-list"
+    "list": "node local-ssh-connect-cli.js --get-credential-list",
+    "test": "node --test"
   },
   "keywords": [
     "ssh",
