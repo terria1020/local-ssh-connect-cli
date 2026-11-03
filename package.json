@@ -4,12 +4,14 @@
   "description": "Stateless SSH credential encapsulation CLI for local use",
   "main": "local-ssh-connect-cli.js",
   "bin": {
+    "lssh": "./local-ssh-connect-cli.js",
     "local-ssh-connect-cli": "./local-ssh-connect-cli.js"
   },
   "scripts": {
     "help": "node local-ssh-connect-cli.js --help",
     "list": "node local-ssh-connect-cli.js --get-credential-list",
-    "test": "node --test"
+    "test": "node --test",
+    "check": "node local-ssh-connect-cli.js --all --check --json"
   },
   "keywords": [
     "ssh",

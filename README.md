@@ -34,6 +34,15 @@ cp ssh-credentials.example.json ssh-credentials.json
 - `ssh-credentials.json`은 `.gitignore`에 포함됨
 - password/passphrase는 Base64 인코딩 문자열 사용 (끝의 개행은 자동 제거)
 
+## 짧은 명령으로 쓰기 (설치)
+
+`npm link`를 하면 `lssh` (또는 `local-ssh-connect-cli`) 명령이 생깁니다. link가 어려우면 alias를 쓰세요.
+
+```bash
+node local-ssh-connect-cli.js --print-alias >> ~/.zshrc && source ~/.zshrc
+lssh --get-credential-list
+```
+
 ## 사용법
 
 ```bash
@@ -53,6 +62,9 @@ node local-ssh-connect-cli.js --all -c "df -h"
 # 기계 친화 출력: 최종 JSON 1개 / 실시간 NDJSON 이벤트
 node local-ssh-connect-cli.js -i web1,web2 --json -c "uptime"
 node local-ssh-connect-cli.js -i web1,web2 --ndjson -c "tail -n 50 /var/log/syslog"
+
+# 접속/인증만 점검 (명령 불필요, 원격에서는 no-op `true`만 실행)
+node local-ssh-connect-cli.js --all --check --json
 
 # 실행 전 확인 (비밀번호는 마스킹, 아무것도 실행하지 않음)
 node local-ssh-connect-cli.js --all --dry-run -c "systemctl restart app"

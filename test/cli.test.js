@@ -201,3 +201,35 @@ test('missing credentials file is a config error', async () => {
   assert.equal(code, 2);
   assert.equal(JSON.parse(stdout.data).error.kind, 'config_error');
 });
+
+test('--check needs no command, runs only the no-op, and works across hosts', async () => {
+  const r = await run(['-i', 'k1,authfail', '--check', '--json']);
+  assert.equal(r.code, 1);
+  const by = Object.fromEntries(JSON.parse(r.out).results.map((x) => [x.id, x]));
+  assert.equal(by.k1.ok, true);
+  assert.equal(by.k1.stdout, 'host=host1 cmd=true\n');
+  assert.equal(by.authfail.errorKind, 'auth_failed');
+});
+
+test('--check rejects a command and --check --all covers every credential', async () => {
+  assert.equal((await run(['-i', 'k1', '--check', '-c', 'x'])).code, 2);
+  const r = await run(['--all', '--check', '--dry-run', '--json']);
+  assert.ok(JSON.parse(r.out).plans.every((p) => p.remoteCommand === 'true'));
+});
+
+test('--print-alias prints an absolute-path alias line without needing credentials', async () => {
+  const stdout = new Sink();
+  const code = await main(['--print-alias', '--credentials-path', '/no/creds.json'], { stdout, stderr: new Sink(), noLog: true });
+  assert.equal(code, 0);
+  assert.match(stdout.data, /^alias lssh='node \/.+\/local-ssh-connect-cli\.js'\n$/);
+});
+
+test('package.json exposes the lssh bin and help documents setup', async () => {
+  const pkg = require('../package.json');
+  assert.equal(pkg.bin.lssh, './local-ssh-connect-cli.js');
+  const stdout = new Sink();
+  await main(['--help'], { stdout, stderr: new Sink() });
+  assert.match(stdout.data, /FIRST-TIME SETUP/);
+  assert.match(stdout.data, /--check/);
+  assert.match(stdout.data, /npm link/);
+});
