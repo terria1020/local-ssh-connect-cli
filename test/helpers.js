@@ -21,6 +21,7 @@ function mkTmp(prefix = 'lssh-test-') {
  *   host "alwaysreset" -> always "Connection reset by ...", exit 255
  *   host "remote3"   -> prints to stdout, stderr "Permission denied" (from remote), exit 3
  *   host "slow"      -> sleeps 5s
+ *   host "localexec*" -> actually runs the remote command locally with sh -c (transfer tests)
  *   otherwise        -> echoes "host=<h> cmd=<c>" and, if stdin is piped, "stdin=<data>"
  * All argv is appended (one line) to $FAKE_LOG when set.
  */
@@ -42,6 +43,7 @@ case "$host" in
     echo "Connection reset by 1.2.3.4 port 22" >&2; exit 255;;
   remote3) echo "out-line"; echo "ls: cannot open: Permission denied" >&2; exit 3;;
   slow) sleep 5;;
+  localexec*) exec sh -c "$cmd";;
   *)
     echo "host=$host cmd=$cmd"
     if [ -p /dev/stdin ] || [ -S /dev/stdin ]; then echo "stdin=$(cat)"; fi;;
@@ -79,6 +81,8 @@ function writeCreds(dir, extra = []) {
       { id: 'remote3', host: 'remote3', username: 'u', authType: 'key', privateKeyPath: key },
       { id: 'slow', host: 'slow', username: 'u', authType: 'key', privateKeyPath: key },
       { id: 'nokey', host: 'nokey', username: 'u', authType: 'key', privateKeyPath: path.join(dir, 'missing') },
+      { id: 'local1', host: 'localexec1', username: 'u', authType: 'key', privateKeyPath: key },
+      { id: 'local2', host: 'localexec2', username: 'u', authType: 'key', privateKeyPath: key },
       ...extra,
     ],
   }));

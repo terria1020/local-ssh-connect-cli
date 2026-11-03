@@ -70,6 +70,27 @@ node local-ssh-connect-cli.js --all --check --json
 node local-ssh-connect-cli.js --all --dry-run -c "systemctl restart app"
 ```
 
+### tail / 파일 전송
+
+```bash
+# 마지막 N줄 (+원격 grep). 여러 호스트면 줄마다 [id] 접두사
+lssh -i web1,web2 tail --file /var/log/app.log -n 100 --grep ERROR
+
+# 짧은 세션 follow: --duration 초 동안만 스트리밍하고 정상 종료
+lssh -i web1 tail --file /var/log/app.log --follow --duration 30 --ndjson
+
+# 다운로드 (바이너리 안전, 임시 파일 후 rename, bytes/sha256 보고)
+lssh -i web1 get /var/log/app.log ./app.log
+lssh -i web1,web2 get /var/log/app.log ./logs      # ./logs/web1/app.log, ./logs/web2/app.log
+
+# 업로드 (원격에서도 임시 파일 후 rename; 기존 파일은 --force 없으면 거부)
+lssh -i web1,web2 put ./app.conf /etc/app/app.conf --force --mode 0644
+```
+
+- 디렉터리 전송은 아직 지원하지 않습니다 (파일 단위).
+- `get`/`put` 결과의 `transfer`: `{direction, localPath, remotePath, bytes, sha256}`
+- `--follow`가 끝난 뒤 원격의 `tail -f`는 다음 출력이 있을 때까지 남아 있을 수 있습니다 (SSH 한계). 신경 쓰이면 `-n` 반복 조회를 권장합니다.
+
 ### zsh/bash 인용(quote) 문제 회피
 
 `$변수`, 백틱, `!`, 따옴표가 섞인 명령은 로컬 셸이 먼저 해석해서 깨지기 쉽습니다. 스크립트를 stdin(heredoc, 따옴표 있는 구분자)이나 파일로 넘기면 원격에 그대로 전달됩니다.
@@ -103,7 +124,25 @@ node local-ssh-connect-cli.js -i web1 --script-file ./check.sh --shell bash
   - 단일 호스트: 원격 명령의 종료 코드, SSH 오류 `255`, 타임아웃 `124`, 실행 불가 `127`
   - `2`: 사용/설정 오류 (아무것도 실행하지 않음)
   - `1`: 다중 호스트 중 하나라도 실패
+- `get`/`put` 전용: 로컬 입출력 오류 `74`(`io_error`), 원격 파일이 이미 있으면 원격 종료 코드 `17`
 - 로그는 기본적으로 콘솔에 나오지 않습니다 (`--verbose`로 켬).
+
+### v1.0 → v1.1 변경 사항 (종료 코드 / 동작)
+
+| 상황 | v1.0 | v1.1 |
+| --- | --- | --- |
+| 성공 | `0` | `0` |
+| 인자 누락·알 수 없는 인자·잘못된 값 | `1` | `2` |
+| 자격 증명 파일 오류, 없는 credential ID, 바이너리 없음 | `1` | `2` |
+| 원격 명령이 0이 아닌 코드로 종료 | `1` (원격 코드 소실) | 원격의 종료 코드 그대로 (단일 호스트) |
+| SSH 인증 실패·접속 불가 | `1` | `255` (`errorKind`로 세부 구분) |
+| `--exec-timeout` 초과 (신규) | - | `124` |
+| 여러 호스트 중 하나라도 실패 (신규) | - | `1` |
+
+- 스크립트가 `exit != 0`만 검사한다면 영향이 없습니다. `== 1`로 실패를 판별하던 곳만 수정하세요 (자동화에서는 `--json`의 `errorKind` 사용을 권장).
+- 로그 파일 위치: 실행한 디렉터리의 `logs/` → 스크립트 디렉터리의 `logs/` (`LSSH_LOG_DIR`로 변경).
+- 콘솔에 찍히던 `[local-ssh-connect-cli] ...` 로그는 기본적으로 사라졌습니다 (`--verbose`로 복원). 진단 메시지는 `[lssh] ...` 형식입니다.
+- 비밀번호/키 인증 옵션이 고정되고(`IdentitiesOnly`, `NumberOfPasswordPrompts=1` 등) 일시적 연결 실패는 자동 재시도됩니다 (`--retries 0`으로 끔).
 
 ## 개발 / 테스트
 
