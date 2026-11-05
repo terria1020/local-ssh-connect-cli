@@ -36,6 +36,7 @@ fi
 cmd="\${@: -1}"
 target="\${@: -2:1}"
 host="\${target#*@}"
+[ -n "$FAKE_ENV_LOG" ] && echo "$host|$LSSH_PASSPHRASE|$SSH_ASKPASS" >> "$FAKE_ENV_LOG"
 case "$host" in
   authfail) echo "Permission denied (publickey,password)." >&2; exit 255;;
   flaky)
