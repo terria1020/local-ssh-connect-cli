@@ -29,6 +29,10 @@ function writeFakeSsh(dir) {
   const p = path.join(dir, 'fake-ssh');
   fs.writeFileSync(p, `#!/bin/bash
 [ -n "$FAKE_LOG" ] && echo "ssh $*" >> "$FAKE_LOG"
+if [ -n "$FAKE_ENV_FILE" ]; then
+  { printf 'askpass=%s\nrequire=%s\npassphrase=%s\n' "$SSH_ASKPASS" "$SSH_ASKPASS_REQUIRE" "$LSSH_PASSPHRASE"
+    [ -x "$SSH_ASKPASS" ] && printf 'prompt_answer=%s\n' "$("$SSH_ASKPASS" "Enter passphrase for key 'k':")"; } > "$FAKE_ENV_FILE"
+fi
 cmd="\${@: -1}"
 target="\${@: -2:1}"
 host="\${target#*@}"
@@ -81,6 +85,7 @@ function writeCreds(dir, extra = []) {
       { id: 'remote3', host: 'remote3', username: 'u', authType: 'key', privateKeyPath: key },
       { id: 'slow', host: 'slow', username: 'u', authType: 'key', privateKeyPath: key },
       { id: 'nokey', host: 'nokey', username: 'u', authType: 'key', privateKeyPath: path.join(dir, 'missing') },
+      { id: 'pp', host: 'host1', username: 'u', authType: 'key', privateKeyPath: key, passphrase: Buffer.from('pa ss\n').toString('base64') },
       { id: 'local1', host: 'localexec1', username: 'u', authType: 'key', privateKeyPath: key },
       { id: 'local2', host: 'localexec2', username: 'u', authType: 'key', privateKeyPath: key },
       ...extra,

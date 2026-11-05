@@ -33,6 +33,7 @@ cp ssh-credentials.example.json ssh-credentials.json
 - 스키마: `ssh-credentials.schema.json`
 - `ssh-credentials.json`은 `.gitignore`에 포함됨
 - password/passphrase는 Base64 인코딩 문자열 사용 (끝의 개행은 자동 제거)
+- passphrase가 걸린 개인 키(`authType: "key"`)는 `passphrase` 필드를 채우면 됩니다. 아래 "passphrase가 있는 키" 참고
 
 ## 짧은 명령으로 쓰기 (설치)
 
@@ -114,11 +115,24 @@ node local-ssh-connect-cli.js -i web1 --script-file ./check.sh --shell bash
 
 인증 방식은 고정됩니다. key는 `IdentitiesOnly` / `BatchMode` / `publickey`만 쓰고, password는 `PubkeyAuthentication=no` + `NumberOfPasswordPrompts=1`을 씁니다. 이로써 ssh-agent 키 때문에 `Too many authentication failures`가 나거나, 틀린 비밀번호가 서버의 실패 횟수를 여러 번 올리는 일을 막습니다.
 
+### passphrase가 있는 키
+
+```json
+{ "id": "prod", "host": "…", "username": "ubuntu", "authType": "key",
+  "privateKeyPath": "/Users/you/.ssh/id_ed25519", "passphrase": "<base64>" }
+```
+
+- passphrase는 임시 `SSH_ASKPASS` 헬퍼로 ssh에 전달됩니다. 환경변수로만 전달하고 argv·디스크에는 남기지 않으며, 헬퍼는 실행이 끝나면 삭제됩니다. passphrase 프롬프트 외의 질문(호스트 키 확인 등)에는 답하지 않습니다.
+- 인증이 실패하면 로컬 `ssh-keygen -y`로 passphrase를 검증해, 틀렸다면 `errorKind: "bad_passphrase"`로 구분합니다. 키는 암호화돼 있는데 `passphrase` 필드가 없으면 힌트(및 `--dry-run` 경고)를 보여줍니다.
+- 키를 `ssh-agent`에 이미 올려 둔 경우에는 `passphrase` 필드가 필요 없습니다.
+- OpenSSH 8.4+는 `SSH_ASKPASS_REQUIRE=force`를, 그보다 오래된 버전은 `DISPLAY`가 설정된 비대화형 환경을 이용합니다.
+- 이전 버전에서는 `passphrase` 필드가 어디에서도 읽히지 않았습니다 (v1.1에서는 `BatchMode`까지 켜져 있어 암호 키가 항상 실패).
+
 ### 출력 계약
 
 - `--json`: `{"ok","total","succeeded","failed","results":[{id,host,ok,exitCode,errorKind,attempts,durationMs,stdout,stderr,truncated,timedOut}]}`
 - `--ndjson`: `start` / `stdout` / `stderr` / `retry` / `exit` / `summary` 이벤트
-- `errorKind`: `remote_nonzero`, `auth_failed`, `too_many_auth`, `host_key`, `dns`, `connection_refused`, `connect_timeout`, `connection_reset`, `connection_lost`, `ssh_error`, `exec_timeout`, `spawn_error`, `config_error`
+- `errorKind`: `remote_nonzero`, `auth_failed`, `bad_passphrase`, `too_many_auth`, `host_key`, `dns`, `connection_refused`, `connect_timeout`, `connection_reset`, `connection_lost`, `ssh_error`, `exec_timeout`, `spawn_error`, `config_error`
 - 종료 코드
   - `0`: 성공
   - 단일 호스트: 원격 명령의 종료 코드, SSH 오류 `255`, 타임아웃 `124`, 실행 불가 `127`
